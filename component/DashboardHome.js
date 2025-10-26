@@ -1,5 +1,14 @@
 import { useState, useEffect } from "react";
-import { Card, Col, Row, Typography, Skeleton, Divider } from "antd";
+import {
+  Card,
+  Col,
+  Row,
+  Typography,
+  Skeleton,
+  Divider,
+  Switch,
+  Space,
+} from "antd";
 import {
   RiseOutlined,
   FallOutlined,
@@ -7,6 +16,7 @@ import {
   DollarOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
+  GlobalOutlined,
 } from "@ant-design/icons";
 import { Line } from "@ant-design/charts";
 import coreAxios from "@/utils/axiosInstance";
@@ -32,6 +42,7 @@ const loadFonts = () => {
 const DashboardHome = () => {
   const [loading, setLoading] = useState(true);
   const [userInfo, setUserInfo] = useState(null);
+  const [language, setLanguage] = useState("en"); // Fixed: Default to 'en'
   const [financialSummary, setFinancialSummary] = useState({
     dailySales: 0,
     totalDailyOrders: 0,
@@ -43,6 +54,56 @@ const DashboardHome = () => {
     monthlyCashInHand: 0,
   });
   const [dailyData, setDailyData] = useState([]);
+
+  // Language content
+  const content = {
+    en: {
+      title: "COMPREHENSIVE OVERVIEW OF YOUR BUSINESS PERFORMANCE",
+      accessDenied: "Access Denied",
+      accessDeniedMessage: "You don't have permission to access this page",
+      dailySales: "Daily Sales",
+      dailyExpenses: "Daily Expenses",
+      dailyOrders: "Daily Orders",
+      dailyCashInHand: "Daily Cash In Hand",
+      monthlySales: "Monthly Sales",
+      monthlyExpenses: "Monthly Expenses",
+      monthlyOrders: "Monthly Orders",
+      monthlyCashInHand: "Monthly Cash In Hand",
+      performanceTrends: "DAILY PERFORMANCE TRENDS",
+      performanceSubtitle: "Visualized data for better decision making",
+      sales: "Daily Sales",
+      orders: "Total Orders",
+      expenses: "Daily Expenses",
+      vsYesterday: "vs yesterday",
+      english: "EN",
+      bangla: "BN",
+      language: "Language",
+    },
+    bn: {
+      title: "আপনার ব্যবসার কর্মদক্ষতার সম্পূর্ণ বিবরণ",
+      accessDenied: "অ্যাক্সেস ডিনাইড",
+      accessDeniedMessage: "আপনার এই পৃষ্ঠাটি অ্যাক্সেস করার অনুমতি নেই",
+      dailySales: "দৈনিক বিক্রয়",
+      dailyExpenses: "দৈনিক ব্যয়",
+      dailyOrders: "দৈনিক অর্ডার",
+      dailyCashInHand: "দৈনিক নগদ অর্থ",
+      monthlySales: "মাসিক বিক্রয়",
+      monthlyExpenses: "মাসিক ব্যয়",
+      monthlyOrders: "মাসিক অর্ডার",
+      monthlyCashInHand: "মাসিক নগদ অর্থ",
+      performanceTrends: "দৈনিক কর্মদক্ষতার প্রবণতা",
+      performanceSubtitle: "ভালো সিদ্ধান্ত নেওয়ার জন্য ভিজ্যুয়াল ডেটা",
+      sales: "দৈনিক বিক্রয়",
+      orders: "মোট অর্ডার",
+      expenses: "দৈনিক ব্যয়",
+      vsYesterday: "গতকালের তুলনায়",
+      english: "EN",
+      bangla: "BN",
+      language: "ভাষা",
+    },
+  };
+
+  const t = content[language];
 
   useEffect(() => {
     loadFonts();
@@ -86,17 +147,17 @@ const DashboardHome = () => {
   const transformedData = dailyData?.flatMap((item) => [
     {
       date: new Date(item.date).toLocaleDateString(),
-      type: "Daily Sales",
+      type: t.sales,
       value: item.dailySales,
     },
     {
       date: new Date(item.date).toLocaleDateString(),
-      type: "Total Orders",
+      type: t.orders,
       value: item.totalOrders,
     },
     {
       date: new Date(item.date).toLocaleDateString(),
-      type: "Daily Expenses",
+      type: t.expenses,
       value: item.dailyExpense,
     },
   ]);
@@ -182,30 +243,32 @@ const DashboardHome = () => {
   };
 
   const getIconForStat = (label) => {
-    switch (label) {
-      case "Daily Sales":
-      case "Monthly Sales":
-        return <RiseOutlined style={{ fontSize: "18px" }} />;
-      case "Daily Expenses":
-      case "Monthly Expenses":
-        return <FallOutlined style={{ fontSize: "18px" }} />;
-      case "Daily Orders":
-      case "Monthly Orders":
-        return <ShoppingOutlined style={{ fontSize: "18px" }} />;
-      default:
-        return <DollarOutlined style={{ fontSize: "18px" }} />;
+    if (label === t.dailySales || label === t.monthlySales) {
+      return <RiseOutlined style={{ fontSize: "18px" }} />;
     }
+    if (label === t.dailyExpenses || label === t.monthlyExpenses) {
+      return <FallOutlined style={{ fontSize: "18px" }} />;
+    }
+    if (label === t.dailyOrders || label === t.monthlyOrders) {
+      return <ShoppingOutlined style={{ fontSize: "18px" }} />;
+    }
+    return <DollarOutlined style={{ fontSize: "18px" }} />;
   };
 
   const getColorForStat = (label) => {
-    if (label.includes("Sales")) return "#6ECB63";
-    if (label.includes("Expenses")) return "#FF6B6B";
-    if (label.includes("Orders")) return "#5B8FF9";
+    if (label === t.dailySales || label === t.monthlySales) return "#6ECB63";
+    if (label === t.dailyExpenses || label === t.monthlyExpenses)
+      return "#FF6B6B";
+    if (label === t.dailyOrders || label === t.monthlyOrders) return "#5B8FF9";
     return "#F7C847";
   };
 
   const getTrendIndicator = (label) => {
-    const isPositive = label.includes("Sales") || label.includes("Orders");
+    const isPositive =
+      label === t.dailySales ||
+      label === t.monthlySales ||
+      label === t.dailyOrders ||
+      label === t.monthlyOrders;
     return isPositive ? (
       <ArrowUpOutlined style={{ color: "#6ECB63", fontSize: "14px" }} />
     ) : (
@@ -213,9 +276,52 @@ const DashboardHome = () => {
     );
   };
 
+  const handleLanguageChange = (checked) => {
+    setLanguage(checked ? "bn" : "en");
+  };
+
+  // Language toggle component - Always render this
+  // const LanguageToggle = () => (
+
+  // );
+
   if (loading) {
     return (
       <div className="min-h-screen p-6 relative overflow-hidden bg-gray-50">
+        <div className="absolute top-6 right-6 z-20">
+          <Card
+            className="rounded-xl shadow-lg border-0"
+            style={{
+              background: "rgba(255, 255, 255, 0.95)",
+              backdropFilter: "blur(4px)",
+            }}
+            bodyStyle={{ padding: "12px 16px" }}
+          >
+            <Space align="center">
+              <GlobalOutlined style={{ color: "#64748B", fontSize: "16px" }} />
+              <Text
+                strong
+                style={{
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: "14px",
+                  color: "#64748B",
+                }}
+              >
+                {t.language}
+              </Text>
+              <Switch
+                checked={language === "bn"}
+                onChange={handleLanguageChange}
+                checkedChildren={t.bangla}
+                unCheckedChildren={t.english}
+                style={{
+                  backgroundColor: language === "bn" ? "#6ECB63" : "#d9d9d9",
+                }}
+              />
+            </Space>
+          </Card>
+        </div>
+        Hii
         <div className="space-y-6">
           <Skeleton active paragraph={{ rows: 1 }} className="max-w-md" />
           <Row gutter={[16, 16]}>
@@ -239,84 +345,80 @@ const DashboardHome = () => {
   return (
     <div className="min-h-screen p-4 relative overflow-hidden bg-gray-50">
       {/* Gradient Header with Waves */}
-      {userInfo?.pagePermissions?.[0]?.viewAccess === true ? (
-        <div>
-          <div className="absolute top-0 left-0 right-0 h-80 bg-gradient-to-r from-[#6ECB63] to-[#5B8FF9] overflow-hidden z-0">
-            <svg
-              className="absolute bottom-0 left-0 right-0"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 1440 320">
-              <path
-                fill="rgba(255, 255, 255, 0.3)"
-                d="M0,256L48,261.3C96,267,192,277,288,250.7C384,224,480,160,576,160C672,160,768,224,864,218.7C960,213,1056,139,1152,117.3C1248,96,1344,128,1392,144L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
-            </svg>
-          </div>
+      <div className="absolute top-0 left-0 right-0 h-80 bg-gradient-to-r from-[#6ECB63] to-[#5B8FF9] overflow-hidden z-0">
+        <svg
+          className="absolute bottom-0 left-0 right-0"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 1440 320"
+        >
+          <path
+            fill="rgba(255, 255, 255, 0.3)"
+            d="M0,256L48,261.3C96,267,192,277,288,250.7C384,224,480,160,576,160C672,160,768,224,864,218.7C960,213,1056,139,1152,117.3C1248,96,1344,128,1392,144L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"
+          ></path>
+        </svg>
+      </div>
 
-          <div className="relative z-10">
-            <div className="mb-12">
-              {" "}
-              {/* Increased padding-bottom here */}
+      {/* Language Toggle - Always visible */}
+      <LanguageToggle />
+
+      <div className="relative z-10">
+        {userInfo?.pagePermissions?.[0]?.viewAccess === true ? (
+          <div>
+            <div className="mb-12 pt-4">
               <Title
                 level={1}
-                className="text-white mb-2 "
+                className="text-white mb-2"
                 style={{
                   fontFamily: "Poppins, sans-serif",
                   fontWeight: 600,
                   textShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                  fontSize: "1.0rem",
-                }}>
-                COMPEREHENSIVE OVERVIEW OF YOUR BUSINESS PERFORMANCE
+                  fontSize: "1.8rem",
+                  marginTop: "20px",
+                }}
+              >
+                {t.title}
               </Title>
-              {/* <Text
-                className="text-black text-opacity-90 text-lg"
-                style={{
-                  fontFamily: "Inter, sans-serif",
-                  paddingBottom: "20px", // Added more padding here
-                  display: "block",
-                }}>
-                Comprehensive overview of your business performance
-              </Text> */}
             </div>
 
             <Row gutter={[24, 24]}>
               {[
                 {
-                  label: "Daily Sales",
+                  label: t.dailySales,
                   value: financialSummary.dailySales,
                   change: "+12%",
                 },
                 {
-                  label: "Daily Expenses",
+                  label: t.dailyExpenses,
                   value: financialSummary.dailyExpense,
                   change: "-5%",
                 },
                 {
-                  label: "Daily Orders",
+                  label: t.dailyOrders,
                   value: financialSummary.totalDailyOrders,
                   change: "+8%",
                 },
                 {
-                  label: "Daily Cash In Hand",
+                  label: t.dailyCashInHand,
                   value: financialSummary.dailyCashInHand,
                   change: "+3%",
                 },
                 {
-                  label: "Monthly Sales",
+                  label: t.monthlySales,
                   value: financialSummary.monthlySales,
                   change: "+15%",
                 },
                 {
-                  label: "Monthly Expenses",
+                  label: t.monthlyExpenses,
                   value: financialSummary.monthlyExpense,
                   change: "-2%",
                 },
                 {
-                  label: "Monthly Orders",
+                  label: t.monthlyOrders,
                   value: financialSummary.totalMonthlyOrders,
                   change: "+10%",
                 },
                 {
-                  label: "Monthly Cash In Hand",
+                  label: t.monthlyCashInHand,
                   value: financialSummary.monthlyCashInHand,
                   change: "+5%",
                 },
@@ -334,7 +436,8 @@ const DashboardHome = () => {
                       border: "1px solid rgba(255, 255, 255, 0.18)",
                       transition: "all 0.3s ease",
                     }}
-                    bodyStyle={{ padding: "20px" }}>
+                    bodyStyle={{ padding: "20px" }}
+                  >
                     <div className="flex items-start justify-between">
                       <div>
                         <Text
@@ -344,7 +447,8 @@ const DashboardHome = () => {
                             fontFamily: "Inter, sans-serif",
                             fontWeight: 500,
                             color: "#64748B",
-                          }}>
+                          }}
+                        >
                           {item.label}
                         </Text>
                         <Title
@@ -355,7 +459,8 @@ const DashboardHome = () => {
                             fontWeight: 600,
                             fontSize: "1.75rem",
                             color: "#1E293B",
-                          }}>
+                          }}
+                        >
                           {typeof item.value === "number"
                             ? `৳${item.value.toLocaleString()}`
                             : item.value}
@@ -370,8 +475,9 @@ const DashboardHome = () => {
                               fontFamily: "Inter, sans-serif",
                               fontSize: "0.875rem",
                               marginLeft: "4px",
-                            }}>
-                            {item.change} vs yesterday
+                            }}
+                          >
+                            {item.change} {t.vsYesterday}
                           </Text>
                         </div>
                       </div>
@@ -383,7 +489,8 @@ const DashboardHome = () => {
                           border: `1px solid ${getColorForStat(item.label)}30`,
                           width: "48px",
                           height: "48px",
-                        }}>
+                        }}
+                      >
                         {getIconForStat(item.label)}
                       </div>
                     </div>
@@ -399,7 +506,8 @@ const DashboardHome = () => {
               style={{
                 boxShadow: "0 10px 30px rgba(0, 0, 0, 0.05)",
                 border: "1px solid rgba(0, 0, 0, 0.03)",
-              }}>
+              }}
+            >
               <div className="flex justify-between items-center mb-8">
                 <div>
                   <Title
@@ -409,28 +517,30 @@ const DashboardHome = () => {
                       fontFamily: "Poppins, sans-serif",
                       fontWeight: 600,
                       color: "#1E293B",
-                    }}>
-                    DAILY PERFORMANCE TRENDS
+                    }}
+                  >
+                    {t.performanceTrends}
                   </Title>
                   <Text
                     type="secondary"
                     style={{
                       fontFamily: "Inter, sans-serif",
                       color: "#64748B",
-                    }}>
-                    Visualized data for better decision making
+                    }}
+                  >
+                    {t.performanceSubtitle}
                   </Text>
                 </div>
                 <div className="flex space-x-4">
-                  {["Sales", "Orders", "Expenses"].map((item) => (
+                  {[t.sales, t.orders, t.expenses].map((item) => (
                     <div key={item} className="flex items-center">
                       <div
                         className="w-3 h-3 rounded-full mr-2"
                         style={{
                           backgroundColor:
-                            item === "Sales"
+                            item === t.sales
                               ? "#6ECB63"
-                              : item === "Orders"
+                              : item === t.orders
                               ? "#5B8FF9"
                               : "#FF6B6B",
                         }}
@@ -440,7 +550,8 @@ const DashboardHome = () => {
                           fontFamily: "Inter, sans-serif",
                           color: "#64748B",
                           fontSize: "0.875rem",
-                        }}>
+                        }}
+                      >
                         {item}
                       </Text>
                     </div>
@@ -450,19 +561,19 @@ const DashboardHome = () => {
               <Line {...lineChartConfig} />
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="flex justify-center items-center h-[70vh]">
-          <div className="text-center p-8 bg-white rounded-xl shadow-lg border border-gray-100 max-w-md">
-            <Title level={3} className="text-[#FF6B6B]">
-              Access Denied
-            </Title>
-            <Text className="text-gray-600 mt-2 block">
-              {`  You don't have permission to access this page`}
-            </Text>
+        ) : (
+          <div className="flex justify-center items-center h-[70vh]">
+            <div className="text-center p-8 bg-white rounded-xl shadow-lg border border-gray-100 max-w-md">
+              <Title level={3} className="text-[#FF6B6B]">
+                {t.accessDenied}
+              </Title>
+              <Text className="text-gray-600 mt-2 block">
+                {t.accessDeniedMessage}
+              </Text>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
