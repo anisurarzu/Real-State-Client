@@ -32,7 +32,9 @@ export default function LoginPage() {
       helpText: "আপনার ইউজার আইডি এবং পাসওয়ার্ড ব্যবহার করুন",
       required: "এই ফিল্ডটি প্রয়োজনীয়",
       loggingIn: "লগইন হচ্ছে...",
-      signingIn: "Signing in..",
+      invalidCredentials: "ভুল ইউজার আইডি বা পাসওয়ার্ড",
+      networkError: "নেটওয়ার্ক সমস্যা। আবার চেষ্টা করুন",
+      serverError: "সার্ভার সমস্যা। পরে চেষ্টা করুন",
     },
     en: {
       title: "Welcome to RealEstate Pro",
@@ -44,8 +46,10 @@ export default function LoginPage() {
       passwordPlaceholder: "Enter your password",
       helpText: "Use your user ID and password to login",
       required: "This field is required",
-      loggingIn: "Logging in...",
-      signingIn: "Signing in...",
+      loggingIn: "Signing in...",
+      invalidCredentials: "Invalid user ID or password",
+      networkError: "Network error. Please try again",
+      serverError: "Server error. Please try again later",
     },
   };
 
@@ -55,36 +59,117 @@ export default function LoginPage() {
     return formData.loginID.trim() !== "" && formData.password.trim() !== "";
   };
 
-  const loginWithoutLocation = async (values) => {
+  const getLocationData = async () => {
     try {
-      const loginPayload = {
-        ...values,
+      const position = await new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => reject(new Error("Timeout")), 5000);
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            clearTimeout(timeoutId);
+            resolve(pos);
+          },
+          (err) => {
+            clearTimeout(timeoutId);
+            reject(err);
+          },
+          { timeout: 5000, maximumAge: 0 }
+        );
+      });
+
+      return {
+        latitude: position.coords.latitude.toString(),
+        longitude: position.coords.longitude.toString(),
+      };
+    } catch (error) {
+      console.log("Geolocation not available:", error.message);
+      return {
         latitude: "0.0",
         longitude: "0.0",
-        publicIP: "Unknown",
-        loginTime: new Date().toISOString(),
       };
+    }
+  };
 
-      const response = await coreAxios.post(`auth/login`, loginPayload);
+  const getPublicIP = async () => {
+    try {
+      const response = await fetch("https://api.ipify.org?format=json", {
+        timeout: 3000,
+      });
+      const data = await response.json();
+      return data.ip;
+    } catch (error) {
+      console.log("Could not fetch IP:", error.message);
+      return "Unknown";
+    }
+  };
 
-      if (response.status === 200) {
+  const performLogin = async (loginPayload) => {
+    try {
+      console.log("Attempting login with payload:", {
+        ...loginPayload,
+        password: "***hidden***",
+      });
+
+      const response = await coreAxios.post("auth/login", loginPayload);
+
+      console.log("Login response status:", response.status);
+
+      if (response.status === 200 && response.data) {
+        // Validate response data
+        if (!response.data.token) {
+          throw new Error("No token received from server");
+        }
+
+        // Store authentication data
         localStorage.setItem("token", response.data.token);
-        localStorage.setItem("userInfo", JSON.stringify(response.data.user));
+        
+        if (response.data.user) {
+          localStorage.setItem("userInfo", JSON.stringify(response.data.user));
+        }
+
+        // Navigate to dashboard
         router.push("/dashboard");
+        return true;
       } else {
-        throw new Error("Login failed");
+        throw new Error("Invalid response from server");
       }
     } catch (error) {
-      setError(
-        error.response?.data?.error || "Login failed. Please try again."
-      );
+      console.error("Login error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+
+      // Handle specific error cases
+      if (error.response) {
+        const status = error.response.status;
+        const errorData = error.response.data;
+
+        if (status === 401 || status === 403) {
+          throw new Error(t.invalidCredentials);
+        } else if (status === 500 || status === 502 || status === 503) {
+          throw new Error(t.serverError);
+        } else if (errorData?.error) {
+          throw new Error(errorData.error);
+        } else if (errorData?.message) {
+          throw new Error(errorData.message);
+        } else {
+          throw new Error(`Server error (${status})`);
+        }
+      } else if (error.request) {
+        throw new Error(t.networkError);
+      } else {
+        throw new Error(error.message || "Login failed");
+      }
     }
   };
 
   const onSubmit = async (e) => {
     e.preventDefault();
+    
+    // Mark all fields as touched
     setTouched({ loginID: true, password: true });
 
+    // Validate form
     if (!validateForm()) {
       setError(t.required);
       return;
@@ -94,50 +179,25 @@ export default function LoginPage() {
     setError("");
 
     try {
-      // Get user's location and IP
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject);
-      });
-
-      const latitude = position.coords.latitude.toString();
-      const longitude = position.coords.longitude.toString();
-
-      // Get public IP
-      const ipResponse = await fetch("https://api.ipify.org?format=json");
-      const ipData = await ipResponse.json();
-      const publicIP = ipData.ip;
-
-      const loginTime = new Date().toISOString();
+      // Get location and IP data in parallel (with fallbacks)
+      const [locationData, publicIP] = await Promise.all([
+        getLocationData(),
+        getPublicIP(),
+      ]);
 
       const loginPayload = {
-        ...formData,
-        latitude,
-        longitude,
-        publicIP,
-        loginTime,
+        loginID: formData.loginID.trim(),
+        password: formData.password,
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        publicIP: publicIP,
+        loginTime: new Date().toISOString(),
       };
 
-      const response = await coreAxios.post(`auth/login`, loginPayload);
-
-      if (response.status === 200) {
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem("userInfo", JSON.stringify(response.data.user));
-        router.push("/dashboard");
-      } else {
-        throw new Error("Login failed");
-      }
+      await performLogin(loginPayload);
     } catch (error) {
-      console.error("Login error:", error);
-
-      // Handle different types of errors
-      if (error.name === "GeolocationPositionError") {
-        // If geolocation fails, try login without location data
-        await loginWithoutLocation(formData);
-      } else {
-        setError(
-          error.response?.data?.error || "Login failed. Please try again."
-        );
-      }
+      console.error("Login failed:", error);
+      setError(error.message || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -245,7 +305,6 @@ export default function LoginPage() {
             ))}
           </div>
 
-          {/* Additional Real Estate Features */}
           <div className="mt-6 grid grid-cols-2 gap-3 w-full max-w-md">
             {[
               {
@@ -343,7 +402,8 @@ export default function LoginPage() {
                     }
                     onBlur={() => handleBlur("loginID")}
                     placeholder={t.loginIDPlaceholder}
-                    className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-gray-800 font-medium"
+                    disabled={loading}
+                    className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-gray-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
                 {touched.loginID && !formData.loginID && (
@@ -368,12 +428,14 @@ export default function LoginPage() {
                     }
                     onBlur={() => handleBlur("password")}
                     placeholder={t.passwordPlaceholder}
-                    className="w-full pl-12 pr-12 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-gray-800 font-medium"
+                    disabled={loading}
+                    className="w-full pl-12 pr-12 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-gray-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors"
+                    disabled={loading}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50"
                   >
                     {showPassword ? (
                       <EyeInvisibleOutlined className="text-lg" />
@@ -396,7 +458,7 @@ export default function LoginPage() {
                 {loading ? (
                   <div className="flex items-center justify-center gap-3">
                     <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>{lang === "bn" ? t.loggingIn : t.signingIn}</span>
+                    <span>{t.loggingIn}</span>
                   </div>
                 ) : (
                   <span className="text-lg">{t.login}</span>
